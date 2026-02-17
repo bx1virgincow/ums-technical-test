@@ -1,49 +1,50 @@
-const {dbConnect} = require('../../dbconnection')
-const  bcrypt  = require('bcrypt')
-const jwt = require('jsonwebtoken')
 
-const registeruser = async (req, res) => {
-  console.log(req.body)
-    //try catch
+import jwt from "jsonwebtoken";
+import { pool } from "../../dbconnection.js";
+import { hash } from "bcrypt";
+
+const register = async (req, res) => {
   try {
-    const db = await dbConnect();
-    const User = db.collection('user');
-    //getting the user input
-    const { firstname, lastname, username, password } = req.body;
-    //validate the user input
-    if (!(username && password && firstname && lastname)) {
-      return res.status(400).send("All fields are required");
+    const { username, email, password } = req.body;
+
+    if (!(username && email && password)) {
+      return res.status(400).send("All inputs are required");
     }
-    //checking if the user already exist
-    const existingUser = await User.findOne({ username });
-    if (existingUser) {
+
+    // Check if user already exists
+    const existing = await pool.query(
+      "SELECT id FROM users WHERE username = $1 OR email = $2",
+      [username, email]
+    );
+
+    if (existing.rows.length > 0) {
       return res.status(409).send("User already exists");
     }
 
-    //encrypting user password in mongodb
-    encryptedPassword = await bcrypt.hash(password, 10)
-    //create user in the database
-    const user = User.insertOne({
-      firstname,
-      lastname,
-      username,
-      password: encryptedPassword,
-    });
+    const hashedPassword = await hash(password, 10);
 
-    //create token
-    const token= jwt.sign(
-        {user_id: user._id, username},"asdf",{
-            expiresIn: '24h'
-        })
+    // RETURNING * gives you back the inserted row, like Mongo's save()
+    const result = await pool.query(
+      `INSERT INTO users (username, email, password)
+       VALUES ($1, $2, $3)
+       RETURNING id, username, email`,
+      [username, email, hashedPassword]
+    );
 
-    //save user token
-    user.token = token
-    //return new user
-    return res.status(201).json(user)
+    const newUser = result.rows[0];
+
+    const token = jwt.sign(
+      { user_id: newUser.id, username },
+      process.env.JWT_SECRET || "test",
+      { expiresIn: "10m" }
+    );
+
+    return res.status(201).json({ ...newUser, token });
 
   } catch (e) {
-    console.log(e)
+    console.log(e);
+    return res.status(500).send("Internal server error");
   }
 };
 
-module.exports = {registeruser}
+export default { register };

@@ -1,19 +1,16 @@
-// import mongodb
-const MongoClient = require("mongodb").MongoClient;
+import pg from 'pg';
+import dotenv from 'dotenv';
 
-//creat connectionString to the database
-//database name : tt_db
-const client = new MongoClient("mongodb://localhost:27017/tt_db");
+const { Pool } = pg;
 
-async function dbConnect() {
-    let conn;
-    try {
-      conn = await client.connect();
-    } catch (e) {
-      console.log(e);
-    }
-    return conn.db("tt_db");
-  }
-  
-module.exports = { dbConnect, client };
-  
+dotenv.config(); 
+
+const pool = new Pool({
+  user: process.env.DB_USERNAME,
+  password: process.env.DB_PASSWORD,
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT || 5432,
+  database: process.env.DB_DATABASE,
+});
+
+export { pool };

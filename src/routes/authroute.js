@@ -1,11 +1,12 @@
-//getting modules into exp
-const exp = require("express");
-//importing loginService
-const { login } = require("../services/authservice/loginService");
-const { registeruser } = require('../services/authservice/registrationservice')
+import { Router } from "express";
+import { login } from "../services/authservice/loginService.js";
+import registrationService from '../services/authservice/registrationservice.js';
 
-const expRoute = exp.Router();
+
+const { register } = registrationService;
+
+const expRoute = Router();
 expRoute.route("/login").post(login);
-expRoute.route("/register").post(registeruser)
+expRoute.route("/register").post(register)
 
-module.exports = { expRoute };
+export default { expRoute };

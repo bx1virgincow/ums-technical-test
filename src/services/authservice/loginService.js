@@ -1,47 +1,42 @@
-//importing db
-const jwt = require("jsonwebtoken");
-const { dbConnect, client } = require("../../dbconnection");
-const bcrypt = require("bcrypt");
+import jwt from "jsonwebtoken";
+import { pool } from "../../dbconnection.js";
+import bcrypt from "bcrypt";
 
 const login = async (req, res) => {
   try {
-    //running the database
-    let db = await dbConnect();
-    //geting the table
-    let User = await db.collection("user");
-    //getting user input
     const { username, password } = req.body;
-    //validating user input
+
     if (!(username && password)) {
       return res.status(400).send("All inputs are required");
     }
 
-    //validate if user exist
-    const user = await User.findOne({ username });
+    const result = await pool.query(
+      "SELECT * FROM users WHERE username = $1",
+      [username]
+    );
 
-    //checking for user and comparing to data
+    const user = result.rows[0]; 
+
     if (user && (await bcrypt.compare(password, user.password))) {
       const token = jwt.sign(
         {
-          user_id: user._id,
+          user_id: user.id,
           username,
         },
-        "asdf",
-        {
-          expiresIn: "24h",
-        }
+        process.env.JWT_SECRET || "test",
+        { expiresIn: "24h" }
       );
 
-      user.token = token;
-      //returning th user
-      res.status(200).json(user);
+      return res.status(200).json({ ...user, token });
     }
-    return res.status(401).send("Unauthorized login");
-  } catch (e) {
-    console.log(e)
-  }
 
-  await client.close();
+    return res.status(401).send("Unauthorized login");
+
+  } catch (e) {
+
+    console.log("Error in login:", e);
+    return res.status(500).send("Internal server error");
+  }
 };
 
-module.exports = { login };
+export { login };
